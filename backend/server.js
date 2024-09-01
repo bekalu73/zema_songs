@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const cors = require("cors");
 const songRoutes = require("./routes/songRoutes");
 
 dotenv.config();
@@ -9,6 +10,7 @@ const app = express();
 
 // Middleware to parse JSON
 app.use(express.json());
+app.use(cors());
 
 // MongoDB connection
 mongoose
