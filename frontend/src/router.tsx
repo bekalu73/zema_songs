@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
-import { CustomHome } from "./pages/home/Home";
+// import { CustomHome } from "./pages/home/Home";
 // import { AuthForm } from "./pages/auth/auth";
 
 type RouteElement = React.ReactElement | null;
@@ -11,7 +11,7 @@ interface Route {
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <CustomHome />,
+    // element: <CustomHome />,
   },
   // {
   //   path: "/auth",
