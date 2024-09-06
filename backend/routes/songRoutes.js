@@ -1,44 +1,30 @@
-const express = require("express");
-const songController = require("../controllers/songController");
-const Song = require("../models/Song");
-
+import express from "express";
+import {
+  getAllSongs,
+  addSong,
+  updateSong,
+  deleteSong,
+  generateStatistics,
+  toggleFavorite,
+} from "../controllers/songController.js";
 const router = express.Router();
 
-// Route to get song statistics
-router.get("/songs/stats", songController.getSongStats);
-
-// Route to create a new song
-router.post("/songs", songController.createSong);
-
 // Route to get all songs
-router.get("/songs", songController.getAllSongs);
+router.get("/", getAllSongs);
 
-// Route to get a single song by ID
-router.get("/songs/:id", songController.getSongById);
+// Route to add a new song
+router.post("/", addSong);
 
-// Route to update a song
-router.put("/songs/:id", songController.updateSong);
+// Route to update an existing song by its ID
+router.put("/:id", updateSong);
 
-// Route to delete a song
-router.delete("/songs/:id", songController.deleteSong);
-// Toggle favorite status
-router.patch("/songs/:id/toggle-favorite", async (req, res) => {
-  try {
-    const songId = req.params.id;
-    const song = await Song.findById(songId);
+// Route to delete a song by its ID
+router.delete("/:id", deleteSong);
 
-    if (!song) {
-      return res.status(404).json({ message: "Song not found" });
-    }
+// Route to generate song statistics by user ID
+router.get("/stat", generateStatistics);
 
-    // Toggle the isFavorite field
-    song.isFavorite = !song.isFavorite;
-    await song.save();
+// Route to toggle the favorite status of a song by its ID
+router.patch("/:id/toggle-favorite", toggleFavorite);
 
-    return res.status(200).json({ message: "Favorite status updated", song });
-  } catch (error) {
-    return res.status(500).json({ message: "Server error", error });
-  }
-});
-
-module.exports = router;
+export default router;

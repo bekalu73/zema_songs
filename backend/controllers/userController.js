@@ -1,44 +1,55 @@
-const UserModel = require("../models/");
+import bcrypt from "bcrypt";
+import User from "../models/User.js";
+import jwt from "jsonwebtoken";
 
-const signup = async (req, res) => {
-  const { username } = req.body;
-  console.log("user name", username);
-
+export const signup = async (req, res) => {
   try {
-    const existingUser = await UserModel.findOne({ username });
+    const { username, email, password } = req.body;
+
+    // Check if email is already registered
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Username already exists" });
+      return res.status(400).json({ message: "Email is already registered" });
     }
 
-    const newUser = await UserModel.create({ username });
-    return res
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user
+    const newUser = new User({ username, email, password: hashedPassword });
+    await newUser.save();
+
+    res
       .status(201)
-      .json({ message: "User created successfully", user: newUser });
+      .json({ message: "User registered successfully", userId: newUser._id });
   } catch (error) {
-    console.error("Error creating user:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
-const login = async (req, res) => {
-  const { username } = req.body;
-
+export const login = async (req, res) => {
   try {
-    const user = await UserModel.findOne({ username });
+    const { email, password } = req.body;
+
+    // Check if the user exists
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    return res
-      .status(200)
-      .json({ message: "User logged in successfully", user });
-  } catch (error) {
-    console.error("Error logging in:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
+    // Compare the password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
-module.exports = {
-  signup,
-  login,
+    // Generate a JWT token
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.status(200).json({ message: "Login successful", token });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
 };

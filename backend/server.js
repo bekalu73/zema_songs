@@ -1,8 +1,9 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-const cors = require("cors");
-const songRoutes = require("./routes/songRoutes");
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import songRoutes from "./routes/songRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import { connectDB } from "./config/db.js";
 
 dotenv.config();
 
@@ -12,19 +13,24 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.log(err));
-
 // Use the song routes
-app.use("/api", songRoutes);
-
+app.use("/songs", songRoutes);
+app.use("/users", userRoutes);
 // Basic route
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+const start = async () => {
+  try {
+    connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server is listening on port ${PORT}`);
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+start();

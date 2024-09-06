@@ -1,79 +1,174 @@
-const songService = require("../services/songService");
+import Song from "../models/Song.js";
 
-// Controller to handle creating a new song
-const createSong = async (req, res) => {
+// get all songs
+export const getAllSongs = async (req, res) => {
   try {
-    const song = await songService.createSong(req.body);
-    res.status(201).json(song);
+    const songs = await Song.find();
+    if (!songs) return res.status(404).json({ message: "Song not found" });
+    return res.status(200).json({ songs: songs });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// Controller to handle fetching all songs
-const getAllSongs = async (req, res) => {
+export const addSong = async (req, res) => {
   try {
-    const songs = await songService.getAllSongs();
-    res.status(200).json(songs);
+    const { title, artist, album, genre, createdBy } = req.body;
+
+    if (!title || !artist || !album || !genre || !createdBy) {
+      return res.status(400).json({
+        message:
+          "All fields (title, artist, album, genre, createdBy) are required",
+      });
+    }
+
+    const newSong = new Song({ title, artist, album, genre, createdBy });
+
+    const savedSong = await newSong.save();
+
+    return res.status(201).json({
+      message: "Song added successfully",
+      song: savedSong,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return console.error("Error adding song:", error.message);
+  }
+};
+export const updateSong = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, artist, album, genre, createdBy } = req.body;
+    if (!id) {
+      return res.status(400).json({ message: "Song ID is required" });
+    }
+    // Check if the required fields for update are provided
+    if (!title && !artist && !album && !genre && !createdBy) {
+      return res.status(400).json({
+        message:
+          "At least one field (title, artist, album, genre) must be provided to update",
+      });
+    }
+    // Find the song by ID and update it, returning the updated song
+    const updatedSong = await Song.findByIdAndUpdate(
+      id,
+      { title, artist, album, genre, createdBy },
+      { new: true, runValidators: true }
+    );
+    // Check if the song was found and updated
+    if (!updatedSong) {
+      return res.status(404).json({ message: "Song not found" });
+    }
+
+    // Successfully updated song
+    return res
+      .status(200)
+      .json({ message: "Song updated successfully", song: updatedSong });
+  } catch (error) {
+    return console.error("Error updating song:", error.message);
   }
 };
 
-// Controller to handle fetching a single song by ID
-const getSongById = async (req, res) => {
+export const deleteSong = async (req, res) => {
   try {
-    const song = await songService.getSongById(req.params.id);
+    const { id } = req.params;
+
+    // Check for song ID
+    if (!id) {
+      return res.status(400).json({ message: "Song ID is required" });
+    }
+
+    // Find and delete the song
+    const deletedSong = await Song.findByIdAndDelete(id);
+
+    if (!deletedSong) {
+      return res.status(404).json({ message: "Song not found" });
+    }
+
+    return res.status(200).json({ message: "Song deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const generateStatistics = async (req, res) => {
+  try {
+    const match = {};
+
+    const totalSongs = await Song.countDocuments(match);
+    const totalArtists = (await Song.distinct("artist", match)).length;
+    const totalAlbums = (await Song.distinct("album", match)).length;
+    const totalGenres = (await Song.distinct("genre", match)).length;
+
+    const genreCounts = await Song.aggregate([
+      { $match: match },
+      { $group: { _id: "$genre", count: { $sum: 1 } } },
+    ]);
+    const artistAlbumCounts = await Song.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: { artist: "$artist", album: "$album" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+    const albumSongCounts = await Song.aggregate([
+      { $match: match },
+      { $group: { _id: "$album", count: { $sum: 1 } } },
+    ]);
+
+    const genreSongCounts = await Song.aggregate([
+      { $match: match },
+      { $group: { _id: "$genre", count: { $sum: 1 } } },
+    ]);
+
+    const artistSongCounts = await Song.aggregate([
+      { $match: match },
+      { $group: { _id: "$artist", count: { $sum: 1 } } },
+    ]);
+
+    // Additional statistics
+    const favoriteSongsCount = await Song.countDocuments({
+      ...match,
+      isFavorite: true,
+    });
+    return res.status(200).json({
+      totalSongs,
+      totalArtists,
+      totalAlbums,
+      totalGenres,
+      genreCounts,
+      artistAlbumCounts,
+      albumSongCounts,
+      genreSongCounts,
+      artistSongCounts,
+      favoriteSongsCount,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const toggleFavorite = async (req, res) => {
+  try {
+    const songId = req.params.id;
+
+    // Find the song by ID
+    const song = await Song.findById(songId);
+
     if (!song) {
       return res.status(404).json({ message: "Song not found" });
     }
-    res.status(200).json(song);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
 
-// Controller to handle updating a song
-const updateSong = async (req, res) => {
-  try {
-    const song = await songService.updateSong(req.params.id, req.body);
-    if (!song) {
-      return res.status(404).json({ message: "Song not found" });
-    }
-    res.status(200).json(song);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+    // Toggle the favorite status
+    song.isFavorite = !song.isFavorite;
+    await song.save();
 
-// Controller to handle deleting a song
-const deleteSong = async (req, res) => {
-  try {
-    const song = await songService.deleteSong(req.params.id);
-    if (!song) {
-      return res.status(404).json({ message: "Song not found" });
-    }
-    res.status(200).json({ message: "Song deleted successfully" });
+    // Respond with the updated favorite status
+    return res.status(200).json({
+      message: "Favorite status toggled successfully",
+      isFavorite: song.isFavorite,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ message: error.message });
   }
-};
-
-// Controller to handle fetching song statistics
-const getSongStats = async (req, res) => {
-  try {
-    const stats = await songService.getSongStats();
-    res.status(200).json(stats);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-module.exports = {
-  createSong,
-  getAllSongs,
-  getSongById,
-  updateSong,
-  deleteSong,
-  getSongStats,
 };
